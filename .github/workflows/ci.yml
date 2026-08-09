@@ -96,8 +96,4 @@ jobs:
         # --nocapture so the per-family tallies land in the log: a run in which the module answered
         # nothing still passes (that is the correct result for an algorithm the token lacks), and the
         # tally is the only way to see which of those happened.
-        #
-        # --test-threads=1 is required, not a preference. Several tests open the module for
-        # themselves and a PKCS #11 library is process-wide, so under thread-per-test the first test
-        # to finish calls C_Finalize under the others and the run segfaults.
-        run: cargo test --features pqc -- --nocapture --test-threads=1
+        run: cargo test --features pqc -- --nocapture

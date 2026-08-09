@@ -19,8 +19,8 @@ use log::debug;
 use sha2::{Digest, Sha256};
 use spki::{AlgorithmIdentifierOwned, SubjectPublicKeyInfoOwned};
 use std::collections::BTreeMap;
-use std::path::Path;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 /// A [`certval`] crypto provider backed by a PKCS #11 module.
 ///
@@ -69,16 +69,52 @@ struct Inner {
     keys: BTreeMap<[u8; 32], ObjectHandle>,
 }
 
+/// Returns the initialized context for `module`, initializing it on first use.
+///
+/// `C_Initialize` is defined once per module per process. A second call is meant to be answered
+/// with `CKR_CRYPTOKI_ALREADY_INITIALIZED`, but a module is free to handle it worse than that:
+/// SoftHSM rebuilds its crypto-factory singleton instead, destroying the live one, so two threads
+/// initializing at once take the process down inside `C_Initialize` rather than getting an error
+/// back. Callers reasonably open a provider more than once - two tokens behind one module, or two
+/// components that do not know about each other - so the rule is enforced here rather than left as
+/// something every caller has to know. Separate modules are separate libraries and each still gets
+/// its own context.
+///
+/// Nothing finalizes these. `C_Finalize` while another provider still holds a session is the same
+/// class of misuse, so the contexts live until the process exits.
+fn shared_context(module: &Path) -> Result<Pkcs11> {
+    static CONTEXTS: OnceLock<Mutex<BTreeMap<PathBuf, Pkcs11>>> = OnceLock::new();
+
+    // Holding the lock across the load and the initialize is the point: it is what turns two
+    // concurrent opens into one initialize and a wait. Poisoning is recovered from rather than
+    // propagated - the map holds only context handles, which a panic elsewhere cannot invalidate.
+    let mut contexts = CONTEXTS
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if let Some(context) = contexts.get(module) {
+        return Ok(context.clone());
+    }
+
+    let context = Pkcs11::new(module)?;
+    context.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK))?;
+    contexts.insert(module.to_path_buf(), context.clone());
+    Ok(context)
+}
+
 impl Pkcs11Crypto {
     /// Loads a PKCS #11 module and opens a read-only public session against a token.
     ///
     /// When `token_label` is `None` the first slot reporting a token present is used, which is the
     /// common case for a module fronting a single device. Supply a label to disambiguate a module
     /// that exposes several.
+    ///
+    /// Calling this more than once for the same module is safe, and from any thread: the module is
+    /// loaded and initialized once per process and shared thereafter, while each value returned
+    /// still gets a session and key cache of its own.
     pub fn open<P: AsRef<Path>>(module: P, token_label: Option<&str>) -> Result<Self> {
-        let context = Pkcs11::new(module.as_ref())?;
-        context.initialize(CInitializeArgs::new(CInitializeFlags::OS_LOCKING_OK))?;
-        Self::from_context(context, token_label)
+        Self::from_context(shared_context(module.as_ref())?, token_label)
     }
 
     /// Opens a session on an already-initialized module, for callers that load the module
