@@ -18,23 +18,23 @@ jobs:
           - 1.85.0 # MSRV, matching certval
           - stable
     steps:
+      # certval is a git dependency pinned by revision, so cargo fetches it itself and no sibling
+      # checkout is needed here.
       - uses: actions/checkout@v4
         with:
           path: certval-pkcs11
-      # certval is a path dependency while the callback seams are still being shaped, so the sibling
-      # checkout the manifest expects has to exist here too. This step goes away when the dependency
-      # becomes a git or crates.io one.
-      - uses: actions/checkout@v4
-        with:
-          repository: carl-wallace/rust-pki
-          ref: pkcs11
-          path: rust-pki
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - run: cargo build --all-targets
         working-directory: certval-pkcs11
       - run: cargo clippy --all-targets
+        working-directory: certval-pkcs11
+      # pqc is off by default, so the steps above never compile the ML-DSA comparison path. Build it
+      # explicitly rather than leaving a feature the tests depend on unbuilt by CI.
+      - run: cargo build --all-targets --all-features
+        working-directory: certval-pkcs11
+      - run: cargo clippy --all-targets --all-features
         working-directory: certval-pkcs11
       - run: cargo fmt --check
         working-directory: certval-pkcs11
@@ -45,12 +45,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: certval-pkcs11
-      # Also the source of the test corpora: the certificates live in rust-pki's test data and are
-      # pointed at rather than copied, which is what the environment variables are for.
+      # The certificate collections live in rust-pki's test data and are pointed at rather than
+      # copied, which is what the environment variables below are for. Pinned to the same revision
+      # as the certval dependency in Cargo.toml, so the certificates and the library under test stay
+      # in lockstep; bump both together.
       - uses: actions/checkout@v4
         with:
           repository: carl-wallace/rust-pki
-          ref: pkcs11
+          ref: d9114b4a3a3e2736579f5f552c01e9619ff645c9
           path: rust-pki
       - uses: dtolnay/rust-toolchain@stable
 
@@ -65,7 +67,7 @@ jobs:
           SOFTHSM2_CONF="$HOME/softhsm/softhsm2.conf" softhsm2-util \
             --init-token --slot 0 --label certval --so-pin 1234 --pin 1234
 
-      - name: Run the corpus tests
+      - name: Run the collection tests
         working-directory: certval-pkcs11
         env:
           CERTVAL_PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
@@ -76,4 +78,8 @@ jobs:
         # --nocapture so the per-family tallies land in the log: a run in which the module answered
         # nothing still passes (that is the correct result for an algorithm the token lacks), and the
         # tally is the only way to see which of those happened.
+        #
+        # --test-threads=1 is required, not a preference. Several tests open the module for
+        # themselves and a PKCS #11 library is process-wide, so under thread-per-test the first test
+        # to finish calls C_Finalize under the others and the run segfaults.
         run: cargo test --features pqc -- --nocapture --test-threads=1

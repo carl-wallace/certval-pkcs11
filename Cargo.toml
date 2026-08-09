@@ -6,7 +6,6 @@ PKCS #11 crypto provider for certval. Offloads message digest calculation and ce
 verification to a PKCS #11 module, so certification path validation can be performed using the
 cryptographic implementation a deployment is required to use.
 """
-authors = [""]
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/carl-wallace/certval-pkcs11"
 categories = ["cryptography"]
