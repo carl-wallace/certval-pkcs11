@@ -5,9 +5,18 @@ on:
   push:
     branches: main
 
+defaults:
+  run:
+    working-directory: certval-pkcs11
+
 env:
   CARGO_INCREMENTAL: 0
   RUSTFLAGS: "-Dwarnings"
+
+# Cancels CI jobs when new commits are pushed to a PR branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -27,17 +36,27 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - run: cargo build --all-targets
-        working-directory: certval-pkcs11
-      - run: cargo clippy --all-targets
-        working-directory: certval-pkcs11
-      # pqc is off by default, so the steps above never compile the ML-DSA comparison path. Build it
+      # pqc is off by default, so the step above never compiles the ML-DSA comparison path. Build it
       # explicitly rather than leaving a feature the tests depend on unbuilt by CI.
       - run: cargo build --all-targets --all-features
-        working-directory: certval-pkcs11
+
+  # Lints run on stable only, deliberately not across the build matrix: clippy's diagnostics differ
+  # between toolchains, so linting against the MSRV pin reports on a compiler nobody develops with.
+  # The pre-commit hook runs the same three commands locally so they fail before a push rather than
+  # in CI — it is an early warning, not a replacement for this job.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: certval-pkcs11
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # Neither component is installed by default.
+          components: clippy, rustfmt
+      - run: cargo clippy --all-targets
       - run: cargo clippy --all-targets --all-features
-        working-directory: certval-pkcs11
       - run: cargo fmt --check
-        working-directory: certval-pkcs11
 
   test:
     runs-on: ubuntu-latest
@@ -68,7 +87,6 @@ jobs:
             --init-token --slot 0 --label certval --so-pin 1234 --pin 1234
 
       - name: Run the collection tests
-        working-directory: certval-pkcs11
         env:
           CERTVAL_PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
           CERTVAL_PKCS11_TOKEN_LABEL: certval
