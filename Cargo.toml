@@ -1,0 +1,58 @@
+[package]
+name = "certval-pkcs11"
+version = "0.1.0"
+description = """
+PKCS #11 crypto provider for certval. Offloads message digest calculation and certificate signature
+verification to a PKCS #11 module, so certification path validation can be performed using the
+cryptographic implementation a deployment is required to use.
+"""
+authors = [""]
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/carl-wallace/certval-pkcs11"
+categories = ["cryptography"]
+keywords = ["pkcs11", "x509", "certval", "hsm"]
+readme = "README.md"
+edition = "2021"
+rust-version = "1.85"
+
+[features]
+default = []
+# Enables certval's software ML-DSA implementation. The provider itself needs nothing from it - it
+# maps ML-DSA algorithm identifiers onto PKCS #11 mechanisms without performing any post-quantum
+# arithmetic - but the ML-DSA corpus test has nothing to compare a module against without it. It is
+# off by default because certval's `pqc` feature carries a git dependency, which would otherwise
+# become this crate's problem too.
+pqc = ["certval/pqc"]
+
+[dependencies]
+# certval is pinned to a revision rather than to a branch. The crate is unpublished and stays at
+# 0.1.0 whatever changes, so a branch-tracking dependency would take interface changes silently on
+# the next `cargo update` with no version to signal them. Bump the revision deliberately. Becomes a
+# crates.io dependency once certval publishes:
+#   certval = "0.1"
+certval = { git = "https://github.com/carl-wallace/rust-pki.git", rev = "d9114b4a3a3e2736579f5f552c01e9619ff645c9", default-features = false, features = ["std", "rsa"] }
+
+cryptoki = "0.12.0"
+
+const-oid = { version = "0.10.2", features = ["db"] }
+der = { version = "0.8.1", features = ["alloc", "derive", "oid"] }
+spki = "0.8.0"
+
+log = "0.4.33"
+sha2 = "0.11.0"
+
+[dev-dependencies]
+x509-cert = { version = "0.3.0", features = ["hazmat"] }
+env_logger = "0.11.11"
+
+# Uncomment while developing certval and this crate together: it redirects the git dependency above
+# to the local checkout, so edits take effect without a commit and a revision bump. Leave it
+# commented on anything that is committed, or the build depends on a path that only exists here.
+# [patch."https://github.com/carl-wallace/rust-pki.git"]
+# certval = { path = "../rust-pki/certval" }
+
+[patch.crates-io]
+# Inherited from certval, which depends on x509-cert 0.3.0 and therefore on an x509-ocsp that has no
+# 0.3 release yet (0.2.1 is the highest published). Any consumer of certval needs this patch until
+# x509-ocsp 0.3 publishes; it is not something this crate needs for itself.
+x509-ocsp = { git = "https://github.com/RustCrypto/formats.git" }

@@ -1,0 +1,5 @@
+/target
+
+# Local SoftHSM setup created by the testing instructions in README.md
+softhsm2.conf
+tokens/

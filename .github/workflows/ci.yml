@@ -1,0 +1,79 @@
+name: certval-pkcs11
+
+on:
+  pull_request:
+  push:
+    branches: main
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.85.0 # MSRV, matching certval
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: certval-pkcs11
+      # certval is a path dependency while the callback seams are still being shaped, so the sibling
+      # checkout the manifest expects has to exist here too. This step goes away when the dependency
+      # becomes a git or crates.io one.
+      - uses: actions/checkout@v4
+        with:
+          repository: carl-wallace/rust-pki
+          ref: pkcs11
+          path: rust-pki
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - run: cargo build --all-targets
+        working-directory: certval-pkcs11
+      - run: cargo clippy --all-targets
+        working-directory: certval-pkcs11
+      - run: cargo fmt --check
+        working-directory: certval-pkcs11
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: certval-pkcs11
+      # Also the source of the test corpora: the certificates live in rust-pki's test data and are
+      # pointed at rather than copied, which is what the environment variables are for.
+      - uses: actions/checkout@v4
+        with:
+          repository: carl-wallace/rust-pki
+          ref: pkcs11
+          path: rust-pki
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install and initialize SoftHSM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y softhsm2
+          mkdir -p "$HOME/softhsm/tokens"
+          printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' \
+            "$HOME/softhsm/tokens" > "$HOME/softhsm/softhsm2.conf"
+          echo "SOFTHSM2_CONF=$HOME/softhsm/softhsm2.conf" >> "$GITHUB_ENV"
+          SOFTHSM2_CONF="$HOME/softhsm/softhsm2.conf" softhsm2-util \
+            --init-token --slot 0 --label certval --so-pin 1234 --pin 1234
+
+      - name: Run the corpus tests
+        working-directory: certval-pkcs11
+        env:
+          CERTVAL_PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
+          CERTVAL_PKCS11_TOKEN_LABEL: certval
+          CERTVAL_PKCS11_RSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/PKITS_data_2048/certs
+          CERTVAL_PKCS11_ECDSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/PKITS_data_p256/certs
+          CERTVAL_PKCS11_MLDSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/pkits_ml_dsa_44/certs
+        # --nocapture so the per-family tallies land in the log: a run in which the module answered
+        # nothing still passes (that is the correct result for an algorithm the token lacks), and the
+        # tally is the only way to see which of those happened.
+        run: cargo test --features pqc -- --nocapture --test-threads=1
