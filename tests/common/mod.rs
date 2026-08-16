@@ -23,11 +23,13 @@ pub const ECDSA_CERTS: &str = "CERTVAL_PKCS11_ECDSA_CERTS";
 /// Directory of ML-DSA-signed certificates.
 pub const MLDSA_CERTS: &str = "CERTVAL_PKCS11_MLDSA_CERTS";
 
-/// The largest number of certificate pairs a single collection run will exercise. A PKITS-shaped
-/// directory yields far more pairs than are needed to establish that the interface behaves, and every
-/// pair costs a token round trip. When the cap bites, the run says so rather than quietly covering
-/// less than it appears to.
-pub const MAX_PAIRS: usize = 400;
+/// The largest number of certificate pairs a single collection run will exercise. The PKITS-shaped
+/// trees the harness points at by default yield 463 to 468 pairs, so the cap sits clear of them and
+/// every pair is covered. Keeping it clear matters, because `pairs` walks the collection in
+/// `read_dir` order and stops once the cap is reached: what a biting cap drops is a deterministic
+/// tail of the filesystem, so coverage would silently exclude the same certificates on every run.
+/// When it does bite, the run says so.
+pub const MAX_PAIRS: usize = 512;
 
 /// Reads an environment variable, returning `None` when it is unset or empty.
 pub fn env(name: &str) -> Option<String> {
