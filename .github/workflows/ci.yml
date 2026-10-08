@@ -32,7 +32,7 @@ jobs:
     steps:
       # certval is a git dependency pinned by revision, so cargo fetches it itself and no sibling
       # checkout is needed here.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
       - uses: dtolnay/rust-toolchain@master
@@ -50,7 +50,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
       - uses: dtolnay/rust-toolchain@stable
@@ -65,7 +65,7 @@ jobs:
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
       - uses: dtolnay/rust-toolchain@stable
@@ -77,14 +77,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
       # The certificate collections live in rust-pki's test data and are pointed at rather than
       # copied, which is what the environment variables below are for. Pinned to the same revision
       # as the certval dependency in Cargo.toml, so the certificates and the library under test stay
       # in lockstep; bump both together.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: carl-wallace/rust-pki
           ref: d9114b4a3a3e2736579f5f552c01e9619ff645c9
