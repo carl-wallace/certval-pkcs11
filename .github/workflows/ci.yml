@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: main
+  # Manual re-runs via `gh workflow run ci.yml` (available once this file is
+  # on the default branch).
+  workflow_dispatch:
 
 defaults:
   run:
@@ -42,8 +45,8 @@ jobs:
 
   # Lints run on stable only, deliberately not across the build matrix: clippy's diagnostics differ
   # between toolchains, so linting against the MSRV pin reports on a compiler nobody develops with.
-  # The pre-commit hook runs the same three commands locally so they fail before a push rather than
-  # in CI — it is an early warning, not a replacement for this job.
+  # The pre-commit hook runs the same commands locally so they fail before a push rather than in
+  # CI — it is an early warning, not a replacement for these jobs.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -52,10 +55,23 @@ jobs:
           path: certval-pkcs11
       - uses: dtolnay/rust-toolchain@stable
         with:
-          # Neither component is installed by default.
-          components: clippy, rustfmt
+          # Not installed by default.
+          components: clippy
       - run: cargo clippy --all-targets
       - run: cargo clippy --all-targets --all-features
+
+  # A job of its own so it can be a required check without making clippy one: each Rust release
+  # adds lints, and a required clippy would fail unrelated pull requests.
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: certval-pkcs11
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # Not installed by default.
+          components: rustfmt
       - run: cargo fmt --check
 
   test:
