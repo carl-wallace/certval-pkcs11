@@ -10,10 +10,12 @@ use certval::{
     VerifySignatureMessage,
 };
 use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
+use cryptoki::error::{Error as Pkcs11Error, RvError};
 use cryptoki::mechanism::Mechanism;
 use cryptoki::object::ObjectHandle;
 use cryptoki::session::Session;
 use cryptoki::slot::Slot;
+use der::asn1::BitString;
 use der::Encode;
 use log::debug;
 use sha2::{Digest, Sha256};
@@ -252,15 +254,20 @@ impl Pkcs11Crypto {
             // The token verified the signature.
             Some(Ok(())) => Ok(()),
 
-            // The token reached a verdict and it was negative. Reported as a verification failure
-            // rather than as a decline, though note that the environment continues to the next
-            // registered implementation either way; a caller who needs this to be final clears the
-            // other implementations before registering this one.
+            // The token reached a verdict and it was negative. The environment treats this as final
+            // and consults no other implementation.
+            Some(Err(Pkcs11Error::Pkcs11(
+                RvError::SignatureInvalid | RvError::SignatureLenRange,
+                _,
+            ))) => Err(certval::Error::PathValidation(
+                PathValidationStatus::SignatureVerificationFailure,
+            )),
+
+            // Any other error is the token declining the request (a mechanism it does not offer,
+            // for instance) rather than judging the signature, so another implementation answers.
             Some(Err(e)) => {
-                debug!("PKCS #11 verification failed: {e}");
-                Err(certval::Error::PathValidation(
-                    PathValidationStatus::SignatureVerificationFailure,
-                ))
+                debug!("PKCS #11 module could not verify a signature: {e}");
+                Err(certval::Error::Unrecognized)
             }
 
             // The key could not be imported or the request could not be assembled, so no verdict
@@ -302,13 +309,14 @@ impl VerifySignatureMessage for Pkcs11Crypto {
         &self,
         _pe: &PkiEnvironment,
         message_to_verify: &[u8],
-        signature: &[u8],
+        signature: &BitString,
         signature_alg: &AlgorithmIdentifierOwned,
         spki: &SubjectPublicKeyInfoOwned,
     ) -> certval::Result<()> {
         let Some((mechanism, kind)) = message_mechanism(signature_alg) else {
             return Err(certval::Error::Unrecognized);
         };
+        let signature = signature.as_bytes().ok_or(certval::Error::ParseError)?;
         self.verify_with(spki, kind, mechanism, message_to_verify, signature)
     }
 }
@@ -318,7 +326,7 @@ impl VerifySignatureDigest for Pkcs11Crypto {
         &self,
         _pe: &PkiEnvironment,
         hash_to_verify: &[u8],
-        signature: &[u8],
+        signature: &BitString,
         signature_alg: &AlgorithmIdentifierOwned,
         spki: &SubjectPublicKeyInfoOwned,
     ) -> certval::Result<()> {
@@ -341,6 +349,7 @@ impl VerifySignatureDigest for Pkcs11Crypto {
             _ => hash_to_verify.to_vec(),
         };
 
+        let signature = signature.as_bytes().ok_or(certval::Error::ParseError)?;
         self.verify_with(spki, kind, mechanism, &data, signature)
     }
 }

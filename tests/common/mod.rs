@@ -82,7 +82,7 @@ pub fn load_certs(dir: &str) -> std::result::Result<Vec<Certificate>, String> {
 /// verification callback is handed.
 pub struct Pair {
     pub tbs: Vec<u8>,
-    pub signature: Vec<u8>,
+    pub signature: der::asn1::BitString,
     pub alg: spki::AlgorithmIdentifierOwned,
     pub issuer_spki: spki::SubjectPublicKeyInfoOwned,
 }
@@ -103,15 +103,13 @@ pub fn pairs(certs: &[Certificate]) -> (Vec<Pair>, bool) {
             if cert.tbs_certificate().issuer() != candidate.tbs_certificate().subject() {
                 continue;
             }
-            let (Ok(tbs), Ok(signature)) = (
-                cert.tbs_certificate().to_der(),
-                cert.signature().as_bytes().ok_or(()),
-            ) else {
+            let (Ok(tbs), Some(_)) = (cert.tbs_certificate().to_der(), cert.signature().as_bytes())
+            else {
                 continue;
             };
             out.push(Pair {
                 tbs,
-                signature: signature.to_vec(),
+                signature: cert.signature().clone(),
                 alg: cert.signature_algorithm().clone(),
                 issuer_spki: candidate
                     .tbs_certificate()

@@ -32,9 +32,10 @@ table; register the same value in each role rather than opening the module three
 
 ## Registration is additive
 
-`PkiEnvironment` consults registered implementations in order and takes the first success, so an
-implementation that declines — or that rejects a signature — falls through to the next. That is what
-lets a module answer for the algorithms it offers while software covers the rest.
+`PkiEnvironment` consults registered implementations in order and stops at the first verdict. The
+provider reports a rejection only when the token judged the signature invalid; anything else it
+declines, and a declined verification falls through to the next implementation. That is what lets a
+module answer for the algorithms it offers while software covers the rest.
 
 It also means registering this provider does not by itself guarantee that every verification reaches
 the module. A caller who requires that must make the registration exclusive:
@@ -123,7 +124,7 @@ cargo test --features pqc -- --nocapture
 
 The `pqc` feature is needed only for the ML-DSA tests: it enables certval's software ML-DSA
 implementation so there is something to compare the module against. The provider itself needs nothing
-from it, and it is off by default because certval's `pqc` feature carries a git dependency.
+from it, so it is off by default.
 
 A released SoftHSM implements no ML-DSA mechanism, so against one the ML-DSA collection exercises the
 fall-through path rather than the module: the provider declines and software answers. That is a
@@ -134,14 +135,8 @@ module as the others do.
 
 ## Status
 
-certval is consumed from rust-pki as a git dependency, pinned to a revision rather than to a branch:
-the crate is unpublished and stays at 0.1.0 whatever changes, so tracking a branch would take
-interface changes silently on the next `cargo update`. Bump the revision deliberately. It becomes a
-crates.io dependency once certval publishes. A commented `[patch]` stanza in `Cargo.toml` redirects
+certval is consumed from crates.io. A commented `[patch.crates-io]` line in `Cargo.toml` redirects
 the dependency to a local checkout for developing both crates together.
-
-The `[patch.crates-io]` entry for `x509-ocsp` is inherited from certval and is needed by any consumer
-of it until x509-ocsp 0.3 publishes.
 
 ## License
 
