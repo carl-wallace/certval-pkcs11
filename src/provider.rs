@@ -14,6 +14,7 @@ use cryptoki::mechanism::Mechanism;
 use cryptoki::object::ObjectHandle;
 use cryptoki::session::Session;
 use cryptoki::slot::Slot;
+use der::asn1::BitString;
 use der::Encode;
 use log::debug;
 use sha2::{Digest, Sha256};
@@ -302,13 +303,14 @@ impl VerifySignatureMessage for Pkcs11Crypto {
         &self,
         _pe: &PkiEnvironment,
         message_to_verify: &[u8],
-        signature: &[u8],
+        signature: &BitString,
         signature_alg: &AlgorithmIdentifierOwned,
         spki: &SubjectPublicKeyInfoOwned,
     ) -> certval::Result<()> {
         let Some((mechanism, kind)) = message_mechanism(signature_alg) else {
             return Err(certval::Error::Unrecognized);
         };
+        let signature = signature.as_bytes().ok_or(certval::Error::ParseError)?;
         self.verify_with(spki, kind, mechanism, message_to_verify, signature)
     }
 }
@@ -318,7 +320,7 @@ impl VerifySignatureDigest for Pkcs11Crypto {
         &self,
         _pe: &PkiEnvironment,
         hash_to_verify: &[u8],
-        signature: &[u8],
+        signature: &BitString,
         signature_alg: &AlgorithmIdentifierOwned,
         spki: &SubjectPublicKeyInfoOwned,
     ) -> certval::Result<()> {
@@ -341,6 +343,7 @@ impl VerifySignatureDigest for Pkcs11Crypto {
             _ => hash_to_verify.to_vec(),
         };
 
+        let signature = signature.as_bytes().ok_or(certval::Error::ParseError)?;
         self.verify_with(spki, kind, mechanism, &data, signature)
     }
 }
