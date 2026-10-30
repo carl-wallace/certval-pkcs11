@@ -34,9 +34,10 @@
 //! # Registration is additive
 //!
 //! [`PkiEnvironment`](certval::PkiEnvironment) consults registered implementations in order and
-//! takes the first success, so an implementation that declines - or that rejects a signature - falls
-//! through to the next one. That is what allows a module to answer for the algorithms it offers
-//! while software covers the rest, and it is the reason the example above still calls
+//! stops at the first verdict. The provider reports a rejection only when the token judged the
+//! signature invalid; anything else it declines, and a declined verification falls through to the
+//! next implementation. That is what allows a module to answer for the algorithms it offers while
+//! software covers the rest, and it is the reason the example above still calls
 //! `populate_5280_pki_environment`.
 //!
 //! It also means registering this provider does **not** by itself guarantee every verification

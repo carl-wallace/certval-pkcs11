@@ -32,9 +32,10 @@ table; register the same value in each role rather than opening the module three
 
 ## Registration is additive
 
-`PkiEnvironment` consults registered implementations in order and takes the first success, so an
-implementation that declines — or that rejects a signature — falls through to the next. That is what
-lets a module answer for the algorithms it offers while software covers the rest.
+`PkiEnvironment` consults registered implementations in order and stops at the first verdict. The
+provider reports a rejection only when the token judged the signature invalid; anything else it
+declines, and a declined verification falls through to the next implementation. That is what lets a
+module answer for the algorithms it offers while software covers the rest.
 
 It also means registering this provider does not by itself guarantee that every verification reaches
 the module. A caller who requires that must make the registration exclusive:

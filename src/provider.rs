@@ -10,6 +10,7 @@ use certval::{
     VerifySignatureMessage,
 };
 use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
+use cryptoki::error::{Error as Pkcs11Error, RvError};
 use cryptoki::mechanism::Mechanism;
 use cryptoki::object::ObjectHandle;
 use cryptoki::session::Session;
@@ -253,15 +254,20 @@ impl Pkcs11Crypto {
             // The token verified the signature.
             Some(Ok(())) => Ok(()),
 
-            // The token reached a verdict and it was negative. Reported as a verification failure
-            // rather than as a decline, though note that the environment continues to the next
-            // registered implementation either way; a caller who needs this to be final clears the
-            // other implementations before registering this one.
+            // The token reached a verdict and it was negative. The environment treats this as final
+            // and consults no other implementation.
+            Some(Err(Pkcs11Error::Pkcs11(
+                RvError::SignatureInvalid | RvError::SignatureLenRange,
+                _,
+            ))) => Err(certval::Error::PathValidation(
+                PathValidationStatus::SignatureVerificationFailure,
+            )),
+
+            // Any other error is the token declining the request (a mechanism it does not offer,
+            // for instance) rather than judging the signature, so another implementation answers.
             Some(Err(e)) => {
-                debug!("PKCS #11 verification failed: {e}");
-                Err(certval::Error::PathValidation(
-                    PathValidationStatus::SignatureVerificationFailure,
-                ))
+                debug!("PKCS #11 module could not verify a signature: {e}");
+                Err(certval::Error::Unrecognized)
             }
 
             // The key could not be imported or the request could not be assembled, so no verdict
