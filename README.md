@@ -135,6 +135,10 @@ module as the others do.
 
 ## Status
 
+Tested against SoftHSM only (see [Testing](#testing)); it has not yet been run against a hardware
+module, whose mechanism support, session limits and initialization behaviour can differ. Not yet
+published to crates.io; take it from this repository by git.
+
 certval is consumed from crates.io. A commented `[patch.crates-io]` line in `Cargo.toml` redirects
 the dependency to a local checkout for developing both crates together.
 
