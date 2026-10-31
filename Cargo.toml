@@ -1,6 +1,6 @@
 [package]
 name = "certval-pkcs11"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 description = """
 PKCS #11 crypto provider for certval. Offloads message digest calculation and certificate signature
 verification to a PKCS #11 module, so certification path validation can be performed using the
