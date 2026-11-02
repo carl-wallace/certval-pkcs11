@@ -252,16 +252,22 @@ impl Pkcs11Crypto {
 
         match outcome {
             // The token verified the signature.
-            Some(Ok(())) => Ok(()),
+            Some(Ok(())) => {
+                debug!("PKCS #11 module verified a signature");
+                Ok(())
+            }
 
             // The token reached a verdict and it was negative. The environment treats this as final
             // and consults no other implementation.
             Some(Err(Pkcs11Error::Pkcs11(
                 RvError::SignatureInvalid | RvError::SignatureLenRange,
                 _,
-            ))) => Err(certval::Error::PathValidation(
-                PathValidationStatus::SignatureVerificationFailure,
-            )),
+            ))) => {
+                debug!("PKCS #11 module rejected a signature");
+                Err(certval::Error::PathValidation(
+                    PathValidationStatus::SignatureVerificationFailure,
+                ))
+            }
 
             // Any other error is the token declining the request (a mechanism it does not offer,
             // for instance) rather than judging the signature, so another implementation answers.

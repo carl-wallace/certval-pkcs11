@@ -210,6 +210,11 @@ pub struct Tally {
 }
 
 impl Tally {
+    /// Pairs on which software reached a verdict, which are the ones compared.
+    pub fn compared(&self) -> usize {
+        self.pairs - self.software_no_opinion
+    }
+
     pub fn report(&self, family: &str, interface: &str) {
         println!(
             "{family} / {interface}: {} pairs | software accepted {}, no opinion {} | module answered {}, declined {}, answered where software could not {} | disagreements {}",
@@ -228,6 +233,19 @@ impl Tally {
             );
         }
     }
+}
+
+/// Fails a collection on which software reached no verdict through either interface. Such a run
+/// counts no disagreements because it compared nothing, which reads exactly like agreement. The usual
+/// cause is a certval feature missing from the test build: `rsa` for RSA and RSASSA-PSS, `pqc` for
+/// ML-DSA and SLH-DSA.
+pub fn assert_compared(family: &str, message: &Tally, digest: &Tally) {
+    assert!(
+        message.compared() + digest.compared() > 0,
+        "{family}: software reached a verdict on none of the {} pairs, so nothing was compared; is \
+         the certval feature for this algorithm enabled in the test build?",
+        message.pairs
+    );
 }
 
 /// The software verdict on a message, taken from the implementations directly rather than through a
