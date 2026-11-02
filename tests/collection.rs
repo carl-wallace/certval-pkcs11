@@ -84,6 +84,8 @@ fn run_family(family: &str, dir_var: &str) -> usize {
         crypto.cached_key_count()
     );
 
+    assert_compared(family, &message, &digest);
+
     message.module_answered + digest.module_answered
 }
 
@@ -99,6 +101,10 @@ fn ecdsa_module_agrees_with_software() {
 
 #[test]
 fn ml_dsa_module_agrees_with_software() {
+    if !cfg!(feature = "pqc") {
+        println!("ML-DSA: skipped, built without pqc, so certval's software has no verdict to compare against");
+        return;
+    }
     run_family("ML-DSA", MLDSA_CERTS);
 }
 
