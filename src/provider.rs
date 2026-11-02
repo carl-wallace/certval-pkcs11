@@ -17,7 +17,7 @@ use cryptoki::session::Session;
 use cryptoki::slot::Slot;
 use der::asn1::BitString;
 use der::Encode;
-use log::debug;
+use log::{debug, trace};
 use sha2::{Digest, Sha256};
 use spki::{AlgorithmIdentifierOwned, SubjectPublicKeyInfoOwned};
 use std::collections::BTreeMap;
@@ -253,7 +253,7 @@ impl Pkcs11Crypto {
         match outcome {
             // The token verified the signature.
             Some(Ok(())) => {
-                debug!("PKCS #11 module verified a signature");
+                trace!("PKCS #11 module verified a signature");
                 Ok(())
             }
 
@@ -263,7 +263,7 @@ impl Pkcs11Crypto {
                 RvError::SignatureInvalid | RvError::SignatureLenRange,
                 _,
             ))) => {
-                debug!("PKCS #11 module rejected a signature");
+                trace!("PKCS #11 module rejected a signature");
                 Err(certval::Error::PathValidation(
                     PathValidationStatus::SignatureVerificationFailure,
                 ))
