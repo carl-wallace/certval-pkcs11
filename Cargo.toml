@@ -12,7 +12,7 @@ categories = ["cryptography"]
 keywords = ["pkcs11", "x509", "certval", "hsm"]
 readme = "README.md"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.89"
 include = ["src/**/*.rs", "README.md", "CHANGELOG.md", "LICENSE-APACHE", "LICENSE-MIT"]
 
 [features]

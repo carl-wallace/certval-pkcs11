@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.88.0 # MSRV, matching certval
+          - 1.89.0 # MSRV
           - stable
     steps:
       # certval comes from crates.io, so no sibling checkout is needed here.
