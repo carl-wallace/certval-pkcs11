@@ -88,6 +88,36 @@ pub(crate) fn signature_for_token(
     }
 }
 
+/// Reshapes a signature the token produced into its X.509 encoding, the inverse of
+/// [`signature_for_token`]: for ECDSA, the fixed-width concatenation of `r` and `s` becomes
+/// `SEQUENCE { r INTEGER, s INTEGER }`.
+#[cfg(feature = "cms")]
+pub(crate) fn signature_from_token(signature: Vec<u8>, kind: KeyKind) -> Option<Vec<u8>> {
+    match kind {
+        KeyKind::Rsa | KeyKind::MlDsa(_) => Some(signature),
+        KeyKind::Ec => {
+            if signature.is_empty() || !signature.len().is_multiple_of(2) {
+                return None;
+            }
+            let (r, s) = signature.split_at(signature.len() / 2);
+            EcdsaSignature {
+                r: UintRef::new(r).ok()?,
+                s: UintRef::new(s).ok()?,
+            }
+            .to_der()
+            .ok()
+        }
+    }
+}
+
+/// The length in octets of the modulus of the RSA key in `spki`, which is the length of a raw RSA
+/// operation's output.
+#[cfg(feature = "cms")]
+pub(crate) fn rsa_modulus_len(spki: &SubjectPublicKeyInfoOwned) -> Option<usize> {
+    let key = RsaPublicKey::from_der(spki.subject_public_key.as_bytes()?).ok()?;
+    Some(key.modulus.as_bytes().len())
+}
+
 /// Returns the size in bytes of a single coordinate of the key in `spki`, for keys where that is
 /// meaningful. An uncompressed point is a leading `0x04` followed by two coordinates of equal size.
 pub(crate) fn ec_field_len(spki: &SubjectPublicKeyInfoOwned) -> Option<usize> {

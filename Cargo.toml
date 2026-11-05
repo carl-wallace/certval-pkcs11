@@ -21,7 +21,10 @@ default = []
 # maps ML-DSA algorithm identifiers onto PKCS #11 mechanisms without performing any post-quantum
 # arithmetic - but the ML-DSA corpus test has nothing to compare a module against without it. It is
 # off by default because the provider has no use for a software ML-DSA implementation.
-pqc = ["certval/pqc"]
+pqc = ["certval/pqc", "certval-cms?/pqc"]
+# Implements certval-cms's recipient and signing credentials over private keys a token holds, and a
+# source that finds them among the token's certificates.
+cms = ["dep:certval-cms", "dep:cms", "dep:x509-cert", "dep:zeroize"]
 
 [dependencies]
 certval = { version = "0.2.0-rc.1", default-features = false }
@@ -35,15 +38,31 @@ spki = "0.8.0"
 log = "0.4.33"
 sha2 = "0.11.0"
 
+certval-cms = { version = "0.1.0-rc.1", optional = true }
+cms = { version = "0.3.0-rc.0", optional = true }
+x509-cert = { version = "0.3.0", default-features = false, optional = true }
+zeroize = { version = "1.8.1", optional = true }
+
 [dev-dependencies]
 # certval's software RSA, which the tests compare this provider's verdicts against. A dev-dependency,
 # so the application, not this crate, decides which algorithms certval's software offers.
 certval = { version = "0.2.0-rc.1", default-features = false, features = ["rsa"] }
-x509-cert = { version = "0.3.0", features = ["hazmat"] }
+x509-cert = { version = "0.3.0", features = ["builder", "hazmat"] }
 env_logger = "0.11.11"
+# The cms tests: certificates for keys generated on the token, issued by a CA whose key is in
+# software, and the random number generator certval-cms's builders take.
+cms = "0.3.0-rc.0"
+getrandom = { version = "0.4.1", features = ["sys_rng"] }
+p256 = { version = "0.14.0", features = ["ecdsa"] }
+rand_core = "0.10.1"
+sha1 = "0.11.0"
+
+[patch.crates-io]
+# certval-cms is not on crates.io yet, so the `cms` feature takes it from the neighboring checkout.
+# Remove this once it publishes.
+certval-cms = { path = "../certval-cms" }
 
 # Uncomment while developing certval and this crate together: it redirects the crates.io dependency
 # above to the local checkout, so edits take effect without a publish. Leave it commented on anything
 # that is committed, or the build depends on a path that only exists here.
-# [patch.crates-io]
 # certval = { path = "../rust-pki/certval" }

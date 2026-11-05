@@ -30,16 +30,21 @@ jobs:
           - 1.89.0 # MSRV
           - stable
     steps:
-      # certval comes from crates.io, so no sibling checkout is needed here.
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
+      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
+      # neighboring checkout, which this is. Both go once it publishes.
+      - uses: actions/checkout@v7
+        with:
+          repository: carl-wallace/certval-cms
+          path: certval-cms
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - run: cargo build --all-targets
-      # pqc is off by default, so the step above never compiles the ML-DSA comparison path. Build it
-      # explicitly rather than leaving a feature the tests depend on unbuilt by CI.
+      # pqc and cms are off by default, so the step above never compiles the ML-DSA comparison path
+      # or the CMS credentials. Build them explicitly rather than leaving features unbuilt by CI.
       - run: cargo build --all-targets --all-features
 
   # Lints run on stable only, deliberately not across the build matrix: clippy's diagnostics differ
@@ -52,6 +57,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
+      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
+      # neighboring checkout, which this is. Both go once it publishes.
+      - uses: actions/checkout@v7
+        with:
+          repository: carl-wallace/certval-cms
+          path: certval-cms
       - uses: dtolnay/rust-toolchain@stable
         with:
           # Not installed by default.
@@ -79,6 +90,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
+      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
+      # neighboring checkout, which this is. Both go once it publishes.
+      - uses: actions/checkout@v7
+        with:
+          repository: carl-wallace/certval-cms
+          path: certval-cms
       # The certificate collections live in rust-pki's test data and are pointed at rather than
       # copied, which is what the environment variables below are for. Pinned to the commit the
       # certval release in Cargo.toml was published from (certval-v0.2.0-rc.1), so the certificates
@@ -101,14 +118,17 @@ jobs:
           SOFTHSM2_CONF="$HOME/softhsm/softhsm2.conf" softhsm2-util \
             --init-token --slot 0 --label certval --so-pin 1234 --pin 1234
 
-      - name: Run the collection tests
+      - name: Run the collection and CMS tests
         env:
           CERTVAL_PKCS11_MODULE: /usr/lib/softhsm/libsofthsm2.so
           CERTVAL_PKCS11_TOKEN_LABEL: certval
+          # The CMS tests generate keys on the token and use them, so they log in.
+          CERTVAL_PKCS11_USER_PIN: "1234"
           CERTVAL_PKCS11_RSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/PKITS_data_2048/certs
           CERTVAL_PKCS11_ECDSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/PKITS_data_p256/certs
           CERTVAL_PKCS11_MLDSA_CERTS: ${{ github.workspace }}/rust-pki/certval/tests/examples/pkits_ml_dsa_44/certs
         # --nocapture so the per-family tallies land in the log: a run in which the module answered
         # nothing still passes (that is the correct result for an algorithm the token lacks), and the
-        # tally is the only way to see which of those happened.
-        run: cargo test --features pqc -- --nocapture
+        # tally is the only way to see which of those happened. Likewise the CMS tests say which
+        # cases the packaged SoftHSM skipped, e.g. ML-KEM, ML-DSA and RSAES-OAEP with SHA-2 in 2.7.
+        run: cargo test --features pqc,cms -- --nocapture
