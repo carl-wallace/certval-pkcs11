@@ -628,5 +628,12 @@ fn token_identities_find_the_recipient_and_the_signer() {
             .verify_signed_data(&built.content_info, None, None, SignerPolicy::All)
             .unwrap();
         assert_eq!(verified.signers[0].certificate, signer.certificate);
+
+        let listed = TokenIdentities::new(token).certificates().unwrap();
+        assert!(
+            listed.contains(&recipient.certificate),
+            "the recipient is listed"
+        );
+        assert!(listed.contains(&signer.certificate), "the signer is listed");
     });
 }

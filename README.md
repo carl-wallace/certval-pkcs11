@@ -92,7 +92,7 @@ With the `cms` feature, a private key on a token serves as a
 logged-in session; `Pkcs11RecipientKey` decrypts with a key on it and `Pkcs11SigningKey` signs, and
 `TokenIdentities` finds both among the token's certificates, each paired with the private key that
 has the same `CKA_ID`: a decryption key by the recipient identifier a message contains, and signing
-keys by signer identifier, email address or subject.
+keys by signer identifier, email address or subject, and `certificates()` lists them.
 
 ```rust
 use certval_cms::CmsEnvironment;
