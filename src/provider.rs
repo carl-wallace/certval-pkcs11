@@ -84,7 +84,7 @@ struct Inner {
 ///
 /// Nothing finalizes these. `C_Finalize` while another provider still holds a session is the same
 /// class of misuse, so the contexts live until the process exits.
-fn shared_context(module: &Path) -> Result<Pkcs11> {
+pub(crate) fn shared_context(module: &Path) -> Result<Pkcs11> {
     static CONTEXTS: OnceLock<Mutex<BTreeMap<PathBuf, Pkcs11>>> = OnceLock::new();
 
     // Holding the lock across the load and the initialize is the point: it is what turns two
@@ -105,6 +105,21 @@ fn shared_context(module: &Path) -> Result<Pkcs11> {
     Ok(context)
 }
 
+/// The slot holding the token labelled `token_label`, or with `None`, the first slot reporting a
+/// token present.
+pub(crate) fn find_slot(context: &Pkcs11, token_label: Option<&str>) -> Result<Slot> {
+    let slots = context.get_slots_with_token()?;
+    let Some(label) = token_label else {
+        return slots.first().copied().ok_or(Error::NoTokenPresent);
+    };
+    for slot in slots {
+        if context.get_token_info(slot)?.label().trim_end() == label {
+            return Ok(slot);
+        }
+    }
+    Err(Error::TokenNotFound(label.to_string()))
+}
+
 impl Pkcs11Crypto {
     /// Loads a PKCS #11 module and opens a read-only public session against a token.
     ///
@@ -122,22 +137,7 @@ impl Pkcs11Crypto {
     /// Opens a session on an already-initialized module, for callers that load the module
     /// themselves or share one across several components.
     pub fn from_context(context: Pkcs11, token_label: Option<&str>) -> Result<Self> {
-        let slots = context.get_slots_with_token()?;
-        let slot = match token_label {
-            None => *slots.first().ok_or(Error::NoTokenPresent)?,
-            Some(label) => {
-                let mut found = None;
-                for slot in slots {
-                    let info = context.get_token_info(slot)?;
-                    if info.label().trim_end() == label {
-                        found = Some(slot);
-                        break;
-                    }
-                }
-                found.ok_or_else(|| Error::TokenNotFound(label.to_string()))?
-            }
-        };
-
+        let slot = find_slot(&context, token_label)?;
         let mechanisms = context.get_mechanism_list(slot)?;
         let offers_hashing = mechanisms.iter().any(|m| {
             use cryptoki::mechanism::MechanismType as T;

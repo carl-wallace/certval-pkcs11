@@ -78,6 +78,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+#[cfg(feature = "cms")]
+mod cms;
 mod error;
 mod key;
 mod mechanism;
@@ -85,3 +87,6 @@ mod provider;
 
 pub use error::{Error, Result};
 pub use provider::Pkcs11Crypto;
+
+#[cfg(feature = "cms")]
+pub use self::cms::{Pkcs11RecipientKey, Pkcs11SigningKey, Pkcs11Token, TokenIdentities};

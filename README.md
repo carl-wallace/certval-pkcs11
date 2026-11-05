@@ -85,6 +85,49 @@ that to a single round trip for every repeat issuer. `Pkcs11Crypto::cached_key_c
 cache size and `clear_key_cache` empties it, for a long-lived process seeing an unbounded set of
 issuers.
 
+## CMS
+
+With the `cms` feature, a private key on a token serves as a
+[certval-cms](https://github.com/carl-wallace/certval-cms) credential. A `Pkcs11Token` is a
+logged-in session; `Pkcs11RecipientKey` decrypts with a key on it and `Pkcs11SigningKey` signs, and
+`TokenIdentities` finds both among the token's certificates, each paired with the private key that
+has the same `CKA_ID`: a decryption key by the recipient identifier a message contains, and signing
+keys by signer identifier, email address or subject.
+
+```rust
+use certval_cms::CmsEnvironment;
+use certval_pkcs11::{Pkcs11Token, TokenIdentities};
+use cryptoki::types::AuthPin;
+use std::sync::Arc;
+
+let pin = AuthPin::new("1234".into());
+let token = Arc::new(Pkcs11Token::open("/usr/lib/softhsm/libsofthsm2.so", Some("certval"), &pin)?);
+let mut env = CmsEnvironment::new();
+env.add_recipient_credential_source(TokenIdentities::new(token.clone()));
+env.add_signing_credential_source(TokenIdentities::new(token));
+```
+
+| Operation | Mechanism |
+|---|---|
+| RSAES-PKCS1-v1_5 key transport | `CKM_RSA_X_509`, unpadded in constant time by certval-cms; `CKM_RSA_PKCS` where the token offers no raw RSA |
+| RSAES-OAEP key transport | `CKM_RSA_PKCS_OAEP` with SHA-1/256/384/512 |
+| Key agreement | `CKM_ECDH1_DERIVE` with no KDF; certval-cms's X9.63 KDF and AES key unwrap |
+| KEM | `C_DecapsulateKey` with `CKM_ML_KEM`; certval-cms's HKDF and AES key unwrap |
+| Signing | the mechanism the signature algorithm calls for, over the message where the token hashes and over the digest otherwise: RSA PKCS #1 v1.5 and RSASSA-PSS, ECDSA, ML-DSA |
+
+Raw RSA keeps the token's padding check from becoming an oracle: certval-cms removes the padding in
+constant time, and a failed key transport goes on with a random content-encryption key (RFC 3218).
+For key agreement and KEM the token returns the shared secret, which therefore leaves it; the
+key-encryption key is derived outside.
+
+A mechanism the token does not offer is the credential declining, which a decryption reports as
+`Unrecognized`. SoftHSM 2.7, for one, offers RSAES-OAEP only with SHA-1 and has no ML-KEM or
+ML-DSA.
+
+PKCS #11 logs a user in for the whole process, so opening a second `Pkcs11Token` on the same token
+finds the user already logged in, which is not an error, and nothing logs out, since that would end
+the login for every session.
+
 ## Testing
 
 The tests verify a collection of certificates through a module and compare the result against certval's
@@ -98,12 +141,13 @@ environment variables, so a PKITS-shaped tree that already exists elsewhere is u
 | `CERTVAL_PKCS11_RSA_CERTS` | directory of RSA-signed certificates |
 | `CERTVAL_PKCS11_ECDSA_CERTS` | directory of ECDSA-signed certificates |
 | `CERTVAL_PKCS11_MLDSA_CERTS` | directory of ML-DSA-signed certificates |
+| `CERTVAL_PKCS11_USER_PIN` | the user PIN, for the CMS tests; when unset they report that they skipped and pass |
 
 Each directory is read for anything that parses as a certificate; every certificate is paired with
 every certificate whose subject matches its issuer, and both are verified. A collection assembled to
 exercise a path validator contains signatures that are supposed to fail, and those carry as much
 weight here as the ones that pass — a provider that accepted everything would satisfy a positive-only
-test. Runs are capped at 400 pairs per collection, and a run that hits the cap says so.
+test. Runs are capped at 512 pairs per collection, and a run that hits the cap says so.
 
 The assertion in each case is **agreement**, not success. Software having no opinion is tracked
 separately from software disagreeing, because certval's digest implementation covers RSA only and a
@@ -119,8 +163,17 @@ export CERTVAL_PKCS11_RSA_CERTS=$EX/PKITS_data_2048/certs
 export CERTVAL_PKCS11_ECDSA_CERTS=$EX/PKITS_data_p256/certs
 export CERTVAL_PKCS11_MLDSA_CERTS=$EX/pkits_ml_dsa_44/certs
 
-cargo test --features pqc -- --nocapture
+export CERTVAL_PKCS11_USER_PIN=1234
+cargo test --features pqc,cms -- --nocapture
 ```
+
+With the `cms` feature, the CMS tests generate each key on the token, so its private half never
+leaves it, and store a certificate for it beside it, issued by a CA in software. certval-cms's
+RustCrypto software builds messages to the certificate and verifies the signatures; the token's
+credential decrypts and signs. They cover key transport with every algorithm, ECDH on P-256, P-384
+and P-521 with each KDF hash and AES key wrap, ML-KEM-512/768/1024 with each KDF and wrap, signing
+with RSA PKCS #1 v1.5 and RSASSA-PSS, ECDSA and ML-DSA, and the credentials found through
+`TokenIdentities`. A case the token does not offer is skipped, and the test says so.
 
 The `pqc` feature is needed only for the ML-DSA tests: it enables certval's software ML-DSA
 implementation so there is something to compare the module against. The provider itself needs nothing
@@ -137,6 +190,13 @@ module as the others do.
 
 Tested against SoftHSM only (see [Testing](#testing)); it has not yet been run against a hardware
 module, whose mechanism support, session limits and initialization behaviour can differ.
+
+With the `cms` feature, every CMS test passes against SoftHSM built from `main`, none skipped. Against
+SoftHSM 2.7.0 they pass with ML-KEM, ML-DSA and RSAES-OAEP with SHA-2 skipped.
+
+certval-cms is not on crates.io yet, so `Cargo.toml`'s `[patch.crates-io]` takes it from a
+neighboring checkout (`../certval-cms`), and CI checks it out there. Both go when it publishes, and
+this crate cannot publish before it does.
 
 certval is consumed from crates.io. A commented `[patch.crates-io]` line in `Cargo.toml` redirects
 the dependency to a local checkout for developing both crates together.
