@@ -39,7 +39,7 @@ use cryptoki::object::{
     Attribute, AttributeType, CertificateType, MlDsaParameterSetType, MlKemParameterSetType,
     ObjectClass, ObjectHandle,
 };
-use cryptoki::types::AuthPin;
+use cryptoki::types::{AuthPin, Ulong};
 use der::asn1::{Any, BitString, Ia5String, OctetString, UintRef};
 use der::{Decode, Encode, Sequence};
 use getrandom::SysRng;
@@ -199,7 +199,7 @@ fn generate(token: &Pkcs11Token, kind: Kind, email: Option<&str>, test: &str) ->
         Kind::Rsa => (
             Mechanism::RsaPkcsKeyPairGen,
             vec![
-                Attribute::ModulusBits(2048u64.into()),
+                Attribute::ModulusBits(Ulong::try_from(2048usize).unwrap()),
                 Attribute::PublicExponent(vec![1, 0, 1]),
                 Attribute::Encrypt(true),
                 Attribute::Verify(true),
