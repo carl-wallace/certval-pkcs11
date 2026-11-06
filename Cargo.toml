@@ -27,7 +27,7 @@ pqc = ["certval/pqc", "certval-cms?/pqc"]
 cms = ["dep:certval-cms", "dep:cms", "dep:x509-cert", "dep:zeroize"]
 
 [dependencies]
-certval = { version = "0.2.0-rc.1", default-features = false }
+certval = { version = "0.2.0-rc.2", default-features = false }
 
 cryptoki = "0.12.0"
 
@@ -46,7 +46,7 @@ zeroize = { version = "1.8.1", optional = true }
 [dev-dependencies]
 # certval's software RSA, which the tests compare this provider's verdicts against. A dev-dependency,
 # so the application, not this crate, decides which algorithms certval's software offers.
-certval = { version = "0.2.0-rc.1", default-features = false, features = ["rsa"] }
+certval = { version = "0.2.0-rc.2", default-features = false, features = ["rsa"] }
 x509-cert = { version = "0.3.0", features = ["builder", "hazmat"] }
 env_logger = "0.11.11"
 # The cms tests: certificates for keys generated on the token, issued by a CA whose key is in
