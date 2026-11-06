@@ -17,6 +17,7 @@ use const_oid::db::fips204::{ID_ML_DSA_44, ID_ML_DSA_65, ID_ML_DSA_87};
 use const_oid::ObjectIdentifier;
 use cryptoki::mechanism::{dsa, rsa::PkcsMgfType, rsa::PkcsPssParams, Mechanism, MechanismType};
 use cryptoki::object::MlDsaParameterSetType;
+use cryptoki::types::Ulong;
 use der::{Decode, Encode};
 use spki::AlgorithmIdentifierOwned;
 
@@ -163,8 +164,8 @@ fn pss_params(alg: &AlgorithmIdentifierOwned) -> Option<PkcsPssParams> {
         // RFC 4055 defaults the salt length to 20, but that default accompanies the SHA-1 default
         // for the hash, which is already excluded above. A parameter block naming a SHA-2 hash and
         // omitting the salt length is unusual enough that matching the digest length is the more
-        // useful reading.
-        s_len: (pss.salt_len.unwrap_or(default_salt) as u64).into(),
+        // useful reading. A salt length the platform's CK_ULONG can't hold is declined.
+        s_len: Ulong::try_from(pss.salt_len.unwrap_or(default_salt) as usize).ok()?,
     })
 }
 

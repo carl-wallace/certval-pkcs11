@@ -38,7 +38,7 @@ use cryptoki::object::{
     Attribute, AttributeType, CertificateType, KeyType, ObjectClass, ObjectHandle,
 };
 use cryptoki::session::{Session, UserType};
-use cryptoki::types::AuthPin;
+use cryptoki::types::{AuthPin, Ulong};
 use der::Decode;
 use log::debug;
 use spki::{AlgorithmIdentifierOwned, SubjectPublicKeyInfoOwned};
@@ -50,7 +50,7 @@ use crate::mechanism::{digest_mechanism, hash_oid_for_signature, message_mechani
 use crate::provider::{find_slot, shared_context};
 
 /// The length in octets of an ML-KEM shared secret (FIPS 203).
-const ML_KEM_SHARED_SECRET_LEN: u64 = 32;
+const ML_KEM_SHARED_SECRET_LEN: usize = 32;
 
 /// A logged-in session on a token, shared by the credentials made from it.
 ///
@@ -145,15 +145,19 @@ fn token_error(what: &str, e: Pkcs11Error) -> Error {
 }
 
 /// The template for a secret the token derives, as a session object whose value can be read.
-fn derived_secret_template(len: u64) -> [Attribute; 6] {
-    [
+///
+/// `CK_ULONG` is 32 bits on Windows and 64 elsewhere, so the length goes through cryptoki's
+/// `usize` conversion; a length the platform's `CK_ULONG` can't hold is declined.
+fn derived_secret_template(len: usize) -> Result<[Attribute; 6]> {
+    let len = Ulong::try_from(len).map_err(|_| Error::Unrecognized)?;
+    Ok([
         Attribute::Class(ObjectClass::SECRET_KEY),
         Attribute::KeyType(KeyType::GENERIC_SECRET),
-        Attribute::ValueLen(len.into()),
+        Attribute::ValueLen(len),
         Attribute::Token(false),
         Attribute::Sensitive(false),
         Attribute::Extractable(true),
-    ]
+    ])
 }
 
 /// The certificate's public key.
@@ -238,13 +242,10 @@ impl RecipientCredential for Pkcs11RecipientKey {
             .as_bytes()
             .ok_or_else(|| Error::InvalidInput(String::from("an originator key of unused bits")))?;
         let mechanism = Mechanism::Ecdh1Derive(Ecdh1DeriveParams::new(EcKdf::null(), point));
+        let template = derived_secret_template(field_len)?;
         let z = self.token.with_session(|session| {
             let secret = session
-                .derive_key(
-                    &mechanism,
-                    self.key,
-                    &derived_secret_template(field_len as u64),
-                )
+                .derive_key(&mechanism, self.key, &template)
                 .map_err(|e| token_error("perform ECDH", e))?;
             self.token.take_secret(session, secret)
         })??;
@@ -260,14 +261,10 @@ impl RecipientCredential for Pkcs11RecipientKey {
         ukm: Option<&[u8]>,
         encrypted_key: &[u8],
     ) -> Result<Zeroizing<Vec<u8>>> {
+        let template = derived_secret_template(ML_KEM_SHARED_SECRET_LEN)?;
         let ss = self.token.with_session(|session| {
             let secret = session
-                .decapsulate_key(
-                    &Mechanism::MlKem,
-                    self.key,
-                    &derived_secret_template(ML_KEM_SHARED_SECRET_LEN),
-                    kem_ct,
-                )
+                .decapsulate_key(&Mechanism::MlKem, self.key, &template, kem_ct)
                 .map_err(|e| token_error("decapsulate", e))?;
             self.token.take_secret(session, secret)
         })??;
