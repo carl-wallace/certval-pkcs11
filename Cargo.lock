@@ -328,23 +328,10 @@ version = "0.3.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e99ff55bfffd019bf15e3f0d5edef2ca1e3af5ade276ed100e3c0c3455050c2"
 dependencies = [
- "aes",
- "aes-kw",
- "ansi-x963-kdf",
- "cbc",
- "cipher",
  "const-oid",
  "der",
- "digest",
- "elliptic-curve",
- "rsa",
- "sha1",
- "sha2",
- "sha3 0.11.0",
- "signature",
  "spki",
  "x509-cert",
- "zeroize",
 ]
 
 [[package]]
@@ -1067,7 +1054,6 @@ checksum = "47cf9537fc2210e5db7a35a1cdda9d8d451b9df6fba234ec1cf0cd746c120c35"
 dependencies = [
  "const-oid",
  "crypto-bigint",
- "crypto-common",
  "crypto-primes",
  "digest",
  "hmac",
