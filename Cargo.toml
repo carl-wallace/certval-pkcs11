@@ -32,14 +32,14 @@ certval = { version = "0.2.0-rc.2", default-features = false }
 cryptoki = "0.12.0"
 
 const-oid = { version = "0.10.2", features = ["db"] }
-der = { version = "0.8.1", features = ["alloc", "derive", "oid"] }
+der = { version = "0.8.3", features = ["alloc", "derive", "oid"] }
 spki = "0.8.0"
 
 log = "0.4.33"
 sha2 = "0.11.0"
 
 certval-cms = { version = "0.1.0-rc.1", optional = true }
-cms = { version = "0.3.0-rc.0", optional = true }
+cms = { version = "=0.3.0-rc.2", optional = true }
 x509-cert = { version = "0.3.0", default-features = false, optional = true }
 zeroize = { version = "1.8.1", optional = true }
 
@@ -51,7 +51,7 @@ x509-cert = { version = "0.3.0", features = ["builder", "hazmat"] }
 env_logger = "0.11.11"
 # The cms tests: certificates for keys generated on the token, issued by a CA whose key is in
 # software, and the random number generator certval-cms's builders take.
-cms = "0.3.0-rc.0"
+cms = "=0.3.0-rc.2"
 getrandom = { version = "0.4.1", features = ["sys_rng"] }
 p256 = { version = "0.14.0", features = ["ecdsa"] }
 rand_core = "0.10.1"
@@ -62,6 +62,9 @@ features = ["cms", "pqc"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [patch.crates-io]
+# certval 0.2.0-rc.3 (SHAKE digests, rsa 0.10.0, cms 0.3.0-rc.2) is not yet on crates.io, so it comes
+# from rust-pki's main until it is published; then this line goes and the requirement moves to rc.3.
+certval = { git = "https://github.com/carl-wallace/rust-pki", branch = "main" }
 # certval-cms is not on crates.io yet, so the `cms` feature takes it from the neighboring checkout.
 # Remove this once it publishes.
 certval-cms = { path = "../certval-cms" }
