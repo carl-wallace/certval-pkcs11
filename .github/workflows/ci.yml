@@ -38,12 +38,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
-      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
-      # neighboring checkout, which this is. Both go once it publishes.
-      - uses: actions/checkout@v7
-        with:
-          repository: carl-wallace/certval-cms
-          path: certval-cms
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -62,12 +56,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
-      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
-      # neighboring checkout, which this is. Both go once it publishes.
-      - uses: actions/checkout@v7
-        with:
-          repository: carl-wallace/certval-cms
-          path: certval-cms
       - uses: dtolnay/rust-toolchain@stable
         with:
           # Not installed by default.
@@ -95,12 +83,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: certval-pkcs11
-      # certval-cms is not on crates.io yet, so Cargo.toml's [patch.crates-io] takes it from a
-      # neighboring checkout, which this is. Both go once it publishes.
-      - uses: actions/checkout@v7
-        with:
-          repository: carl-wallace/certval-cms
-          path: certval-cms
       # The certificate collections live in rust-pki's test data and are pointed at rather than
       # copied, which is what the environment variables below are for. Pinned to the commit the
       # certval release in Cargo.toml was published from (certval-v0.2.0-rc.1), so the certificates

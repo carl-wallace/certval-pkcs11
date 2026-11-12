@@ -62,10 +62,6 @@ features = ["cms", "pqc"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [patch.crates-io]
-# certval-cms is not on crates.io yet, so the `cms` feature takes it from the neighboring checkout.
-# Remove this once it publishes.
-certval-cms = { path = "../certval-cms" }
-
 # Uncomment while developing certval and this crate together: it redirects the crates.io dependency
 # above to the local checkout, so edits take effect without a publish. Leave it commented on anything
 # that is committed, or the build depends on a path that only exists here.
