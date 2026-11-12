@@ -175,8 +175,9 @@ dependencies = [
 
 [[package]]
 name = "certval"
-version = "0.2.0-rc.2"
-source = "git+https://github.com/carl-wallace/rust-pki?branch=main#3c6aa0a3f82138cb34eb23f74a4634819625e2d6"
+version = "0.2.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db144332ad5a5b7f686e41ac9685b135bc0d996b38c5e8fafb358ca261fd0dbe"
 dependencies = [
  "base64ct",
  "cfg-if",
@@ -909,7 +910,8 @@ dependencies = [
 [[package]]
 name = "pkiprocmacros"
 version = "0.1.2"
-source = "git+https://github.com/carl-wallace/rust-pki?branch=main#3c6aa0a3f82138cb34eb23f74a4634819625e2d6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5df93c69801978b114a3e8f84e395bc72cee6666b26794adc799cfa4d95fc07"
 dependencies = [
  "quote",
  "syn 2.0.119",
