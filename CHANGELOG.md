@@ -2,7 +2,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html), except that
 an increase to the minimum supported Rust version is not treated as a breaking change.
 
-## Unreleased
+## [0.1.0-rc.1] - 2026-11-12
 
 Added a `cms` feature, under which private keys on a token serve as certval-cms credentials:
 `Pkcs11Token` is a logged-in session, `Pkcs11RecipientKey` decrypts KeyTransRecipientInfo (raw RSA
