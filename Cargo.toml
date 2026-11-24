@@ -66,3 +66,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 # above to the local checkout, so edits take effect without a publish. Leave it commented on anything
 # that is committed, or the build depends on a path that only exists here.
 # certval = { path = "../rust-pki/certval" }
+
+# Testing against the open RustCrypto/formats PR, whose branch this one tracks: cms, and the
+# x509-cert it needs, from the PR branch, and certval-cms from its branch built on them. Remove when
+# cms is released with the change.
+cms = { git = "https://github.com/carl-wallace/formats", branch = "pluggable_content_encryption" }
+x509-cert = { git = "https://github.com/carl-wallace/formats", branch = "pluggable_content_encryption" }
+certval-cms = { git = "https://github.com/carl-wallace/certval-cms", branch = "pluggable_content_encryption" }

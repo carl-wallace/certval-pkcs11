@@ -19,12 +19,13 @@ use std::time::Duration;
 
 use certval::PkiEnvironment;
 use certval_cms::{
-    rsa_pss, AuthEnvelopedDataBuilder, CmsEnvironment, ContentEncryptionAlgorithm, DigestAlgorithm,
-    EnvelopedDataBuilder, KdfAlgorithm, KemRecipient, KeyAgreeRecipient, KeyAgreementAlgorithm,
+    content_info, rsa_pss, AuthEnvelopedDataBuilder, CmsEnvironment, ContentEncryptionAlgorithm,
+    DigestAlgorithm, KdfAlgorithm, KemRecipient, KeyAgreeRecipient, KeyAgreementAlgorithm,
     KeyTransRecipient, KeyTransportAlgorithm, KeyWrapAlgorithm, RecipientCredential,
     SignedDataBuilder, Signer, SignerPolicy, SigningCredential,
 };
 use certval_pkcs11::{Pkcs11RecipientKey, Pkcs11SigningKey, Pkcs11Token, TokenIdentities};
+use cms::builder::{EnvelopedDataBuilder, RecipientInfoBuilder};
 use cms::content_info::ContentInfo;
 use const_oid::db::fips203::{ID_ALG_ML_KEM_1024, ID_ALG_ML_KEM_512, ID_ALG_ML_KEM_768};
 use const_oid::db::fips204::{ID_ML_DSA_44, ID_ML_DSA_65, ID_ML_DSA_87};
@@ -337,20 +338,22 @@ fn hex(bytes: &[u8]) -> String {
 fn envelop<'e>(
     env: &'e CmsEnvironment,
     alg: ContentEncryptionAlgorithm,
-    recipient: impl certval_cms::RecipientInfoBuilder<Rng = Rng> + 'e,
+    recipient: impl RecipientInfoBuilder<Rng = Rng> + 'e,
 ) -> ContentInfo {
     if alg.is_authenticated() {
-        AuthEnvelopedDataBuilder::new(MESSAGE, alg)
-            .unwrap()
+        AuthEnvelopedDataBuilder::new(MESSAGE, env.content_encryptor(alg))
             .add_recipient(recipient)
-            .build_content_info(env, &mut rng())
+            .build_content_info(&mut rng())
             .unwrap_or_else(|e| panic!("building: {e}"))
     } else {
-        EnvelopedDataBuilder::new(MESSAGE, alg)
-            .unwrap()
-            .add_recipient(recipient)
-            .build_content_info(env, &mut rng())
-            .unwrap_or_else(|e| panic!("building: {e}"))
+        let enveloped_data =
+            EnvelopedDataBuilder::new(None, MESSAGE, env.content_encryptor(alg), None)
+                .unwrap()
+                .add_recipient_info(recipient)
+                .unwrap()
+                .build_with_rng(&mut rng())
+                .unwrap_or_else(|e| panic!("building: {e}"));
+        content_info(const_oid::db::rfc5911::ID_ENVELOPED_DATA, &enveloped_data).unwrap()
     }
 }
 
